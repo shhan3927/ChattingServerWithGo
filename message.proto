@@ -1,0 +1,38 @@
+syntax = "proto3";
+package example;
+
+enum MessageType {
+    kCreateRoomRequest = 0;
+    kCreateRoomResponse = 1;
+    kJoinRoomRequest = 2;
+    kJoinRoomResponse = 3;
+    kSendMessageRequest = 4;
+    kSendMessageResponse = 5;
+
+    kCreateRoomNotify = 101;
+    kCreateJoinRoomNotify = 102;
+    kSendMessageNotify = 103;
+};
+
+message JoinRoomRequest {
+    MessageType messageType = 1;
+    string name = 2;
+}
+
+message JoinRoomResponse {
+    MessageType messageType = 1;
+    string name = 2;
+    bool isSuccess = 3;
+}
+
+message SendMessageRequest{
+    MessageType messageType = 1;
+    string name = 2;
+    string message = 3;
+}
+
+message SendMessageNotify{
+    MessageType messageType = 1;
+    string name = 2;
+    string message = 3;
+}
