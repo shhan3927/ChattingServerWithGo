@@ -1,18 +1,40 @@
 syntax = "proto3";
-package example;
+package protomessage;
 
 enum MessageType {
-    kCreateRoomRequest = 0;
-    kCreateRoomResponse = 1;
-    kJoinRoomRequest = 2;
-    kJoinRoomResponse = 3;
-    kSendMessageRequest = 4;
-    kSendMessageResponse = 5;
+    kCreateNicknameRequest = 0;
+    kCreateNicknameResponse = 1;
+    kCreateRoomRequest = 2;
+    kCreateRoomResponse = 3;
+    kJoinRoomRequest = 4;
+    kJoinRoomResponse = 5;
+    kSendMessageRequest = 6;
+    kSendMessageResponse = 7;
 
     kCreateRoomNotify = 101;
     kCreateJoinRoomNotify = 102;
     kSendMessageNotify = 103;
 };
+
+message CreateNicknameRequest {
+    MessageType messageType = 1;
+    string name = 2;
+}
+
+message CreateNicknameResponse {
+    MessageType messageType = 1;
+    string name = 2;
+}
+
+message CreateRoomRequest {
+    MessageType messageType = 1;
+    string name = 2;
+}
+
+message CreateRoomResponse {
+    MessageType messageType = 1;
+    string name = 2;
+}
 
 message JoinRoomRequest {
     MessageType messageType = 1;

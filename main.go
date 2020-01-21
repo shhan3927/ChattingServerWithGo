@@ -7,27 +7,37 @@ import (
 
 ///////////////////////////////////
 type User struct {
-	name string
-	conn net.Listener
+	userId uint32
+	name   string
+	conn   net.Listener
 }
 
 ///////////////////////////////////
 type Room struct {
-	name  string
-	users []User
+	roomId uint32
+	name   string
+	users  []User
 }
 
 ///////////////////////////////////
 type ChattingManager struct {
-	users map[string]User
-	rooms map[string]Room
+	users map[uint32]User
+	rooms map[uint32]Room
 }
 
-func (this *ChattingManager) AddUser(name string, conn net.Listener){
-	var user User;
-	user.name = name;
-	user.conn = conn;
-	this.users[name] = user
+func (this *ChattingManager) AddUser(name string, conn net.Listener) {
+	var user User
+	user.userId = uint32(len(this.users) + 1)
+	user.name = name
+	user.conn = conn
+	this.users[user.userId] = user
+}
+
+func (this *ChattingManager) AddRoom(name string) {
+	var room Room
+	room.roomId = uint32(len(this.rooms) + 1)
+	room.name = name
+	this.rooms[room.roomId] = room
 }
 
 ///////////////////////////////////
