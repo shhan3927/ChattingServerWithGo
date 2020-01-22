@@ -2,13 +2,13 @@ package main
 
 import "encoding/binary"
 
-const HeaderSize uint32 = 12
+const HEADER_SIZE uint32 = 12
 
 type ErrorCode uint32
 
 const (
-	Error1 ErrorCode = 0
-	Error2 ErrorCode = 1
+	NoError ErrorCode = 0
+	Error1  ErrorCode = 1
 )
 
 type Header struct {
@@ -18,16 +18,16 @@ type Header struct {
 }
 
 func (h *Header) Unmarshal(buf []byte) ErrorCode {
-	if len(buf) != int(HeaderSize) {
+	if len(buf) != int(HEADER_SIZE) {
 		return Error1
 	}
 	h.messageType = binary.BigEndian.Uint32(buf[:4])
 	h.errorCode = ErrorCode(binary.BigEndian.Uint32(buf[4:8]))
 	h.bodyLength = binary.BigEndian.Uint32(buf[8:])
-	return nil
+	return NoError
 }
 func (h *Header) Marshal() []byte {
-	buf := make([]byte, HeaderSize)
+	buf := make([]byte, HEADER_SIZE)
 	binary.BigEndian.PutUint32(buf[:4], uint32(h.messageType))
 	binary.BigEndian.PutUint32(buf[4:8], uint32(h.errorCode))
 	binary.BigEndian.PutUint32(buf[8:], h.bodyLength)

@@ -1,52 +1,33 @@
 package main
 
 import (
-	"ChattingServerWithGo/protomessage"
-	"fmt"
 	"log"
 	"net"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/shhan3927/ChattingServerWithGo/protomessage"
 )
 
 type Client struct {
-	uint32 userId
+	userId uint32
 	conn   net.Conn
 }
 
-func (this *Client) ReqCreateNickName(name String) {
+func (this *Client) ReqCreateNickname(name string) {
 	var nicknameReq protomessage.CreateNicknameRequest
 	messageType, typeValue := protomessage.GetPacketType(nicknameReq)
 	nicknameReq.MessageType = messageType
-	nicknameReq.Name = "name"
+	nicknameReq.Name = name
 
 	head := Header{
 		messageType: typeValue,
+		bodyLength:  uint32(nicknameReq.XXX_Size()),
 	}
 
 	headerBuffer := head.Marshal()
-	payloadBuffer, err := proto.Marshal()
+	payloadBuffer, _ := proto.Marshal(&nicknameReq)
 	buffer := append(headerBuffer, payloadBuffer...)
 	this.conn.Write(buffer)
-}
-
-func main() {
-	conn, err := net.Dial("tcp", ":4321")
-	if nil != err {
-		log.Println(err)
-	}
-
-	defer conn.Close()
-
-	var client Client
-	client.conn = conn
-
-	var name string
-	fmt.Println("Input your name")
-	fmt.Scan(&name)
-	client.ReqCreateNickname(name)
-
-	go HandleRecvMessage(client.conn)
 }
 
 func HandleSendMessage(conn net.Conn) {
@@ -56,10 +37,10 @@ func HandleSendMessage(conn net.Conn) {
 }
 
 func HandleRecvMessage(conn net.Conn) {
-	data := make([]byte, MessageBodySizeMax)
+	data := make([]byte, protomessage.MESSAGE_MAX_SIZE)
 
 	for {
-		n, err := conn.Read(data)
+		_, err := conn.Read(data)
 		if err != nil {
 			log.Println(err)
 			return
@@ -68,3 +49,22 @@ func HandleRecvMessage(conn net.Conn) {
 		// parsing header...
 	}
 }
+
+// func main() {
+// 	conn, err := net.Dial("tcp", ":4321")
+// 	if nil != err {
+// 		log.Println(err)
+// 	}
+
+// 	defer conn.Close()
+
+// 	var client Client
+// 	client.conn = conn
+
+// 	var name string
+// 	fmt.Println("Input your name")
+// 	fmt.Scan(&name)
+// 	client.ReqCreateNickname(name)
+
+// 	go HandleRecvMessage(client.conn)
+// }

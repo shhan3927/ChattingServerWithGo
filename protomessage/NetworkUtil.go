@@ -4,11 +4,9 @@ import (
 	"reflect"
 )
 
-const MessageBodySizeMax uint32 = 4096
+const MESSAGE_MAX_SIZE uint32 = 4096
 
-func GetPacketType(i interface{}) MessageType int32 {
+func GetPacketType(i interface{}) (MessageType, uint32) {
 	typeValue := MessageType_value["k"+reflect.TypeOf(i).String()]
-	return MessageType(typeValue), typeValue 
+	return MessageType(typeValue), uint32(typeValue)
 }
-
-
