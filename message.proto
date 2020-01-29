@@ -23,28 +23,34 @@ message CreateNicknameRequest {
 
 message CreateNicknameResponse {
     MessageType messageType = 1;
-    string name = 2;
+    uint32 userId = 2;
+    string name = 3;
 }
 
 message CreateRoomRequest {
     MessageType messageType = 1;
-    string name = 2;
+    uint32 roomId = 2;
+    string name = 3;
 }
 
 message CreateRoomResponse {
     MessageType messageType = 1;
-    string name = 2;
+    uint32 roomId = 2;
+    string name = 3;
 }
 
 message JoinRoomRequest {
     MessageType messageType = 1;
-    string name = 2;
+    uint32 roomId = 2;
+    uint32 userId = 3;
+    string name = 4;
 }
 
 message JoinRoomResponse {
     MessageType messageType = 1;
-    string name = 2;
-    bool isSuccess = 3;
+    uint32 roomId = 2;
+    string name = 3;
+    bool isSuccess = 4;
 }
 
 message SendMessageRequest{

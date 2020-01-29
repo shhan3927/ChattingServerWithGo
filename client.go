@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net"
 
@@ -8,14 +10,18 @@ import (
 	"github.com/shhan3927/ChattingServerWithGo/protomessage"
 )
 
+// 일단 전역으로...
+var client Client
+
 type Client struct {
 	userId uint32
-	conn   net.Conn
+	name   string
+	//conn   net.Conn
 }
 
-func (this *Client) ReqCreateNickname(name string) {
+func (this *Client) ReqCreateNickname(conn net.Conn, name string) {
 	var nicknameReq protomessage.CreateNicknameRequest
-	messageType, typeValue := protomessage.GetPacketType(nicknameReq)
+	messageType, typeValue := GetPacketType(nicknameReq)
 	nicknameReq.MessageType = messageType
 	nicknameReq.Name = name
 
@@ -27,7 +33,7 @@ func (this *Client) ReqCreateNickname(name string) {
 	headerBuffer := head.Marshal()
 	payloadBuffer, _ := proto.Marshal(&nicknameReq)
 	buffer := append(headerBuffer, payloadBuffer...)
-	this.conn.Write(buffer)
+	conn.Write(buffer)
 }
 
 func HandleSendMessage(conn net.Conn) {
@@ -37,34 +43,59 @@ func HandleSendMessage(conn net.Conn) {
 }
 
 func HandleRecvMessage(conn net.Conn) {
-	data := make([]byte, protomessage.MESSAGE_MAX_SIZE)
+	data := make([]byte, 1024)
 
 	for {
 		_, err := conn.Read(data)
 		if err != nil {
+			if io.EOF == err {
+				log.Println(err)
+				return
+			}
 			log.Println(err)
 			return
 		}
 
 		// parsing header...
+		ParseHeader(conn, data)
 	}
 }
 
-// func main() {
-// 	conn, err := net.Dial("tcp", ":4321")
-// 	if nil != err {
-// 		log.Println(err)
-// 	}
+func ParseHeader(conn net.Conn, msg []byte) {
+	headerBuffer := msg[:HEADER_SIZE]
+	var header Header
+	e := header.Unmarshal(headerBuffer)
 
-// 	defer conn.Close()
+	if e != NoError {
+		log.Println(e)
+	}
 
-// 	var client Client
-// 	client.conn = conn
+	switch header.messageType {
+	case uint32(protomessage.MessageType_value["kCreateNicknameResponse"]):
+		payload := msg[HEADER_SIZE : HEADER_SIZE+header.bodyLength]
+		var response protomessage.CreateNicknameResponse
+		e := proto.Unmarshal(payload, &response)
+		if e != nil {
+			log.Println(e)
+		}
+		client.userId = response.UserId
+		client.name = response.Name
+	default:
+		fmt.Println("dddd")
+	}
+}
 
-// 	var name string
-// 	fmt.Println("Input your name")
-// 	fmt.Scan(&name)
-// 	client.ReqCreateNickname(name)
+func main() {
+	conn, err := net.Dial("tcp", ":4321")
+	if nil != err {
+		log.Println(err)
+	}
 
-// 	go HandleRecvMessage(client.conn)
-// }
+	defer conn.Close()
+	go HandleRecvMessage(conn)
+	//var name string
+
+	fmt.Println("Input your name")
+	//fmt.Scan(&name)
+	client.ReqCreateNickname(conn, "Test")
+}
