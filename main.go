@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
 func StartServerMode() {
@@ -36,10 +37,20 @@ func StartClientMode() {
 	if error != nil {
 		fmt.Println(error)
 	}
-	client := &Client{socket: connection}
+	client := &Client{socket: connection, data: make([]byte, MESSAGE_MAX_SIZE)}
 	go client.Receive()
 
-	client.ReqCreateNickname("Test")
+	waitGroup := new(sync.WaitGroup)
+	waitGroup.Add(1)
+	go func() {
+		var nickname string
+		fmt.Println("Input nickname : ")
+		fmt.Scanf("%s", &nickname)
+		client.ReqCreateNickname(nickname)
+		waitGroup.Done()
+	}()
+
+	waitGroup.Wait()
 
 	for {
 		reader := bufio.NewReader(os.Stdin)
