@@ -7,29 +7,9 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
+
+	"github.com/shhan3927/ChattingServerWithGo/network"
 )
-
-func StartServerMode() {
-	fmt.Println("Starting server...")
-	listener, error := net.Listen("tcp", ":4321")
-	if error != nil {
-		fmt.Println(error)
-	}
-	var server ChattingServer
-	server.Init()
-
-	go server.Start()
-	for {
-		connection, _ := listener.Accept()
-		if error != nil {
-			fmt.Println(error)
-		}
-		client := &Client{socket: connection, data: make([]byte, MESSAGE_MAX_SIZE)}
-		server.register <- client
-		go server.HandleMessage(client)
-	}
-}
 
 func StartClientMode() {
 	fmt.Println("Starting client...")
@@ -37,20 +17,13 @@ func StartClientMode() {
 	if error != nil {
 		fmt.Println(error)
 	}
-	client := &Client{socket: connection, data: make([]byte, MESSAGE_MAX_SIZE)}
+	client := &Client{socket: connection, data: make([]byte, network.MESSAGE_MAX_SIZE)}
 	go client.Receive()
 
-	waitGroup := new(sync.WaitGroup)
-	waitGroup.Add(1)
-	go func() {
-		var nickname string
-		fmt.Println("Input nickname : ")
-		fmt.Scanf("%s", &nickname)
-		client.ReqCreateNickname(nickname)
-		waitGroup.Done()
-	}()
-
-	waitGroup.Wait()
+	var nickname string
+	fmt.Println("Input nickname : ")
+	fmt.Scanf("%s", &nickname)
+	client.ReqCreateNickname(nickname)
 
 	for {
 		reader := bufio.NewReader(os.Stdin)
@@ -64,7 +37,8 @@ func main() {
 	flag.Parse()
 
 	if strings.ToLower(*flagMode) == "server" {
-		StartServerMode()
+		var chatMgr ChattingMgrServer
+		chatMgr.Init()
 	} else {
 		StartClientMode()
 	}
