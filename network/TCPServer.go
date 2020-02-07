@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 )
 
 type TCPServer struct {
@@ -13,15 +12,9 @@ type TCPServer struct {
 	Connect chan *TCPClient
 }
 
-var instance *TCPServer
-var once sync.Once
-
-func GetTCPServer() *TCPServer {
-	once.Do(func() {
-		instance = &TCPServer{clients: make(map[net.Conn]*TCPClient), Connect: make(chan *TCPClient)}
-	})
-	fmt.Println("TCPServer instance...")
-	return instance
+func (s *TCPServer) Init() {
+	s.clients = make(map[net.Conn]*TCPClient)
+	s.Connect = make(chan *TCPClient)
 }
 
 func (s *TCPServer) Start(address string) {

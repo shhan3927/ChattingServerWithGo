@@ -18,6 +18,7 @@ type ChattingMgrServer struct {
 	users      map[uint32]*ChattingUser
 	userIdMap  map[*ChattingUser]uint32
 	userSeqNum uint32
+	networkMgr network.TCPServer
 }
 
 func (c *ChattingMgrServer) Init() {
@@ -25,13 +26,14 @@ func (c *ChattingMgrServer) Init() {
 	c.userIdMap = make(map[*ChattingUser]uint32)
 
 	go c.Start()
-	network.GetTCPServer().Start(":4321")
+	c.networkMgr.Init()
+	c.networkMgr.Start(":4321")
 }
 
 func (c *ChattingMgrServer) Start() {
 	for {
 		select {
-		case client := <-network.GetTCPServer().Connect:
+		case client := <-c.networkMgr.Connect:
 			c.RegisterUser(&ChattingUser{client: client})
 		}
 	}
