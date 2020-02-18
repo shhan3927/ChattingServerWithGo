@@ -2,77 +2,151 @@ package network
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net"
 )
 
+type CmdType uint32
+type ErrorCode uint32
+type MessageDelegate func(*Session, *Message)
+
+type Message struct {
+	CmdType uint32
+	ErrCode ErrorCode
+	Body    []byte
+}
+
+func NewTCPServer() *TCPServer {
+	server := &TCPServer{
+		sessions:     make(map[*Session]bool),
+		ConnectCh:    make(chan *Session, 10000),
+		disconnectCh: make(chan *Session, 10000),
+		recvCh:       make(chan *Session, 10000),
+		MessageCh:    make(chan *Message, 10000),
+	}
+	return server
+}
+
 type TCPServer struct {
-	clients map[net.Conn]*TCPClient
-	Connect chan *TCPClient
+	clients  map[net.Conn]*TCPClient
+	sessions map[*Session]bool
+	Connect  chan *TCPClient
+
+	ConnectCh    chan *Session
+	disconnectCh chan *Session
+	recvCh       chan *Session
+	MessageCh    chan *Message
+
+	listener net.Listener
+
+	OnConnect     SessionDelegate
+	OnRecvMessage MessageDelegate
 }
 
-func (s *TCPServer) Init() {
-	s.clients = make(map[net.Conn]*TCPClient)
-	s.Connect = make(chan *TCPClient)
-}
-
-func (s *TCPServer) Start(address string) {
+func (s *TCPServer) Start(address string) (err error) {
 	fmt.Println("start tcp server...")
-	listener, error := net.Listen("tcp", address)
-	if error != nil {
-		fmt.Println(error)
+	s.listener, err = net.Listen("tcp", address)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	defer listener.Close()
+	defer s.listener.Close()
 
+	go s.accept()
+	s.process()
+
+	return
+}
+
+func (s *TCPServer) accept() {
 	for {
 		fmt.Println("tcp server accept...")
-		socket, err := listener.Accept()
+		socket, err := s.listener.Accept()
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		s.RegisterSocket(socket, nil)
-		client := &TCPClient{Socket: socket, Data: make(chan []byte)}
-		s.Connect <- client
-		go s.HandleMessage(client)
+		s.ConnectCh <- NewSession(socket, s.recvCh)
 	}
 }
 
-func (s *TCPServer) RegisterSocket(socket net.Conn, client *TCPClient) {
-	if ret, isExist := s.clients[socket]; !isExist || ret == nil {
-		s.clients[socket] = client
-	}
-}
-
-func (s *TCPServer) UnregisterSocket(socket net.Conn) {
-	delete(s.clients, socket)
-}
-
-func (s *TCPServer) HandleMessage(client *TCPClient) {
-	buffer := make([]byte, MESSAGE_MAX_SIZE)
-
+func (s *TCPServer) process() {
 	for {
-		n, err := client.Socket.Read(buffer)
-		fmt.Println("Read Socket")
-		if nil != err {
-			defer func() {
-				s.UnregisterSocket(client.Socket)
-				client.Socket.Close()
-			}()
-
-			if io.EOF == err {
-				log.Println(err)
-				return
+		select {
+		case session := <-s.ConnectCh:
+			s.registerSession(session)
+			s.OnConnect(session)
+		case session := <-s.disconnectCh:
+			s.unregisterSession(session)
+		case session := <-s.recvCh:
+			head, payload, err := s.parseMessage(session.recvBuf)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				s.OnRecvMessage(session, &Message{
+					CmdType: head.MessageType,
+					ErrCode: 0,
+					Body:    payload,
+				})
 			}
-			log.Println(err)
-			return
-		}
-
-		if n > 0 {
-			fmt.Println("Read Socket Success..")
-			client.Data <- buffer
 		}
 	}
 }
+
+func (s *TCPServer) registerSession(session *Session) {
+	s.sessions[session] = true
+}
+
+func (s *TCPServer) unregisterSession(session *Session) {
+	s.sessions[session] = false
+}
+
+func (s *TCPServer) parseMessage(message []byte) (*Header, []byte, error) {
+	head := &Header{}
+	err := head.Unmarshal(message[:HEADER_SIZE])
+	if err != nil {
+		return head, nil, err
+	}
+	if head.BodyLength == 0 {
+		return head, nil, nil
+	}
+
+	return head, message[HEADER_SIZE : HEADER_SIZE+head.BodyLength], nil
+}
+
+// func (s *TCPServer) RegisterSocket(socket net.Conn, client *TCPClient) {
+// 	if ret, isExist := s.clients[socket]; !isExist || ret == nil {
+// 		s.clients[socket] = client
+// 	}
+// }
+
+// func (s *TCPServer) UnregisterSocket(socket net.Conn) {
+// 	delete(s.clients, socket)
+// }
+
+// func (s *TCPServer) HandleMessage(client *TCPClient) {
+// 	buffer := make([]byte, MESSAGE_MAX_SIZE)
+
+// 	for {
+// 		n, err := client.Socket.Read(buffer)
+// 		fmt.Println("Read Socket")
+// 		if nil != err {
+// 			defer func() {
+// 				s.UnregisterSocket(client.Socket)
+// 				client.Socket.Close()
+// 			}()
+
+// 			if io.EOF == err {
+// 				log.Println(err)
+// 				return
+// 			}
+// 			log.Println(err)
+// 			return
+// 		}
+
+// 		if n > 0 {
+// 			fmt.Println("Read Socket Success..")
+// 			client.Data <- buffer
+// 		}
+// 	}
+// }

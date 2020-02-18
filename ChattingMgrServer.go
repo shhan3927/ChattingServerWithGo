@@ -14,66 +14,89 @@ type ITCPSocket interface {
 	Send([]byte)
 }
 
-type ChattingMgrServer struct {
-	users      map[uint32]*ChattingUser
-	userIdMap  map[*ChattingUser]uint32
-	userSeqNum uint32
-	networkMgr network.TCPServer
-}
-
-func (c *ChattingMgrServer) Init() {
-	c.users = make(map[uint32]*ChattingUser)
-	c.userIdMap = make(map[*ChattingUser]uint32)
-
-	go c.Start()
-	c.networkMgr.Init()
-	c.networkMgr.Start(":4321")
-}
-
-func (c *ChattingMgrServer) Start() {
-	for {
-		select {
-		case client := <-c.networkMgr.Connect:
-			c.RegisterUser(&ChattingUser{client: client})
-		}
+func NewChattingMgr() *ChattingMgr {
+	chattingMgr := &ChattingMgr{
+		users:          make(map[uint32]*ChattingUser),
+		userIdMap:      make(map[*ChattingUser]uint32),
+		userSessionMap: make(map[*network.Session]*ChattingUser),
 	}
+	return chattingMgr
 }
 
-func (c *ChattingMgrServer) RegisterUser(user *ChattingUser) {
+type ChattingMgr struct {
+	users          map[uint32]*ChattingUser
+	userIdMap      map[*ChattingUser]uint32
+	userSessionMap map[*network.Session]*ChattingUser
+	userSeqNum     uint32
+	networkMgr     *network.TCPServer
+}
+
+func (c *ChattingMgr) Init() {
+	c.networkMgr = network.NewTCPServer()
+	c.networkMgr.OnConnect = c.RegisterUser
+	c.networkMgr.OnRecvMessage = c.dispatchMessage
+	c.networkMgr.Start(":4300")
+	//.Start()
+}
+
+func (c *ChattingMgr) Start() {
+	// for {
+	// 	select {
+	// 	case session := <-c.networkMgr.ConnectCh:
+	// 		c.RegisterUser(session)
+	// 	case message := <-c.networkMgr.MessageCh:
+	// 		c.dispatchMessage(message)
+	// 	}
+	// }
+}
+
+func (c *ChattingMgr) RegisterUser(session *network.Session) {
+	user := NewChattingUser(c.userSeqNum, session)
 	c.userSeqNum++
 	c.users[c.userSeqNum] = user
 	c.userIdMap[user] = c.userSeqNum
-	go func(u *ChattingUser) {
-		for {
-			select {
-			case message := <-u.client.Data:
-				fmt.Println("Client Recv Message...")
-				c.ParseMessage(u, message)
-			}
-		}
-	}(user)
+	c.userSessionMap[session] = user
+
+	// go func(u *ChattingUser) {
+	// 	for {
+	// 		select {
+	// 		case message := <-u.client.Data:
+	// 			fmt.Println("Client Recv Message...")
+	// 			c.ParseMessage(user, message)
+	// 		}
+	// 	}
+	// }(user)
 }
 
-func (c *ChattingMgrServer) ParseMessage(user *ChattingUser, message []byte) {
-	header, payload, err := GetHeadAndPayload(message)
-	if err != nil {
-		return
-	}
+func (c *ChattingMgr) ParseMessage(session *network.Session, message []byte) {
+	// header, payload, err := GetHeadAndPayload(message)
+	// if err != nil {
+	// 	return
+	// }
 
-	switch header.messageType {
-	case uint32(protomessage.MessageType_value["kCreateNicknameRequest"]):
-		c.HandleCreateNickName(user, payload)
-	default:
+	// switch header.messageType {
+	// case uint32(protomessage.MessageType_value["kCreateNicknameRequest"]):
+	// 	c.HandleCreateNickName(nil, payload)
+	// default:
+	// }
+}
+
+func (c *ChattingMgr) dispatchMessage(session *network.Session, msg *network.Message) {
+	switch msg.CmdType {
+	case uint32(protomessage.MessageType_kCreateNicknameRequest):
+		c.HandleCreateNickName(c.userSessionMap[session], msg.Body)
 	}
 }
 
-func (c *ChattingMgrServer) HandleCreateNickName(user *ChattingUser, msg []byte) {
+func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 	var packet protomessage.CreateNicknameRequest
 
 	e := proto.Unmarshal(msg, &packet)
 	if e != nil {
 		log.Println(e)
 	}
+
+	fmt.Println(packet.Name)
 
 	// 나중에 수정
 	// response...
@@ -91,23 +114,23 @@ func (c *ChattingMgrServer) HandleCreateNickName(user *ChattingUser, msg []byte)
 }
 
 // 나중에 수정
-func (c *ChattingMgrServer) SendToClient(packetType uint32, bodySize uint32, payload []byte, user *ChattingUser) {
-	head := Header{
-		messageType: packetType,
-		bodyLength:  bodySize,
+func (c *ChattingMgr) SendToClient(packetType uint32, bodySize uint32, payload []byte, user *ChattingUser) {
+	head := network.Header{
+		MessageType: packetType,
+		BodyLength:  bodySize,
 	}
 
 	headerBuffer := head.Marshal()
 	buffer := append(headerBuffer, payload...)
 
-	_, err := user.client.Socket.Write(buffer)
+	_, err := user.session.Socket.Write(buffer)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 }
 
-func (c *ChattingMgrServer) ModifyUserNickname(user *ChattingUser, nickname string) *ChattingUser {
+func (c *ChattingMgr) ModifyUserNickname(user *ChattingUser, nickname string) *ChattingUser {
 	userId := c.userIdMap[user]
 	u, isExist := c.users[userId]
 
@@ -120,36 +143,22 @@ func (c *ChattingMgrServer) ModifyUserNickname(user *ChattingUser, nickname stri
 }
 
 /////////////////////////////////////////
-func GetHeadAndPayload(message []byte) (Header, []byte, error) {
-	head := Header{}
-	// n, err := client.socket.Read(client.data[:HEADER_SIZE])
-	// if err != nil {
-	// 	if n == 0 || err == io.EOF {
-	// 		//	syscall.WSAECONNRESET on windows
-	// 		return head, nil, SessionEDisconnect
-	// 	}
-	// 	return head, nil, err
-	// }
-	err := head.Unmarshal(message[:HEADER_SIZE])
-	if err != nil {
-		return head, nil, err
-	}
-	if head.bodyLength == 0 {
-		return head, nil, nil
-	}
-	// read body
-	// _, err = client.socket.Read(client.data[:head.bodyLength])
-	// if err != nil {
-	// 	return head, nil, err
-	// }
-	return head, message[HEADER_SIZE : HEADER_SIZE+head.bodyLength], nil
-}
 
 /////////////////////////////////////
+
+func NewChattingUser(userId uint32, session *network.Session) *ChattingUser {
+	c := &ChattingUser{
+		userId:  userId,
+		session: session,
+	}
+
+	return c
+}
+
 type ChattingUser struct {
 	userId   uint32
 	nickname string
-	client   *network.TCPClient
+	session  *network.Session
 }
 
 func (c *ChattingUser) Recv(data []byte) {

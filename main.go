@@ -13,11 +13,11 @@ import (
 
 func StartClientMode() {
 	fmt.Println("Starting client...")
-	connection, error := net.Dial("tcp", ":4321")
+	connection, error := net.Dial("tcp", ":4300")
 	if error != nil {
 		fmt.Println(error)
 	}
-	client := &Client{socket: connection, data: make([]byte, network.MESSAGE_MAX_SIZE)}
+	client := &network.Client{Socket: connection, Data: make([]byte, network.MESSAGE_MAX_SIZE)}
 	go client.Receive()
 
 	var nickname string
@@ -37,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	if strings.ToLower(*flagMode) == "server" {
-		var chatMgr ChattingMgrServer
+		chatMgr := NewChattingMgr()
 		chatMgr.Init()
 	} else {
 		StartClientMode()
