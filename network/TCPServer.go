@@ -2,12 +2,14 @@ package network
 
 import (
 	"fmt"
+	"log"
 	"net"
 )
 
 type CmdType uint32
 type ErrorCode uint32
 type MessageDelegate func(*Session, *Message)
+type MessageDelegate2 func(*Session, *Message, uint32)
 
 type Message struct {
 	CmdType uint32
@@ -18,9 +20,10 @@ type Message struct {
 func NewTCPServer() *TCPServer {
 	server := &TCPServer{
 		sessions:     make(map[*Session]bool),
-		ConnectCh:    make(chan *Session, 10000),
+		connectCh:    make(chan *Session, 10000),
 		disconnectCh: make(chan *Session, 10000),
 		recvCh:       make(chan *Session, 10000),
+		sendCh:       make(chan *Session, 10000),
 		MessageCh:    make(chan *Message, 10000),
 	}
 	return server
@@ -31,15 +34,17 @@ type TCPServer struct {
 	sessions map[*Session]bool
 	Connect  chan *TCPClient
 
-	ConnectCh    chan *Session
+	connectCh    chan *Session
 	disconnectCh chan *Session
 	recvCh       chan *Session
+	sendCh       chan *Session
 	MessageCh    chan *Message
 
 	listener net.Listener
 
 	OnConnect     SessionDelegate
 	OnRecvMessage MessageDelegate
+	OnSendMessage MessageDelegate2
 }
 
 func (s *TCPServer) Start(address string) (err error) {
@@ -66,14 +71,14 @@ func (s *TCPServer) accept() {
 			fmt.Println(err)
 		}
 
-		s.ConnectCh <- NewSession(socket, s.recvCh)
+		s.connectCh <- NewSession(socket, s.recvCh)
 	}
 }
 
 func (s *TCPServer) process() {
 	for {
 		select {
-		case session := <-s.ConnectCh:
+		case session := <-s.connectCh:
 			s.registerSession(session)
 			s.OnConnect(session)
 		case session := <-s.disconnectCh:
@@ -114,39 +119,18 @@ func (s *TCPServer) parseMessage(message []byte) (*Header, []byte, error) {
 	return head, message[HEADER_SIZE : HEADER_SIZE+head.BodyLength], nil
 }
 
-// func (s *TCPServer) RegisterSocket(socket net.Conn, client *TCPClient) {
-// 	if ret, isExist := s.clients[socket]; !isExist || ret == nil {
-// 		s.clients[socket] = client
-// 	}
-// }
+func (s *TCPServer) SendMessage(session *Session, msg *Message, bodySize uint32) {
+	head := Header{
+		MessageType: msg.CmdType,
+		BodyLength:  bodySize,
+	}
 
-// func (s *TCPServer) UnregisterSocket(socket net.Conn) {
-// 	delete(s.clients, socket)
-// }
+	headerBuffer := head.Marshal()
+	buffer := append(headerBuffer, msg.Body...)
 
-// func (s *TCPServer) HandleMessage(client *TCPClient) {
-// 	buffer := make([]byte, MESSAGE_MAX_SIZE)
-
-// 	for {
-// 		n, err := client.Socket.Read(buffer)
-// 		fmt.Println("Read Socket")
-// 		if nil != err {
-// 			defer func() {
-// 				s.UnregisterSocket(client.Socket)
-// 				client.Socket.Close()
-// 			}()
-
-// 			if io.EOF == err {
-// 				log.Println(err)
-// 				return
-// 			}
-// 			log.Println(err)
-// 			return
-// 		}
-
-// 		if n > 0 {
-// 			fmt.Println("Read Socket Success..")
-// 			client.Data <- buffer
-// 		}
-// 	}
-// }
+	_, err := session.Socket.Write(buffer)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
