@@ -8,8 +8,8 @@ import (
 
 type CmdType uint32
 type ErrorCode uint32
-type MessageDelegate func(*Session, *Message)
-type MessageDelegate2 func(*Session, *Message, uint32)
+type MessageDelegate func(SessionInfo, *Message)
+type MessageDelegate2 func(SessionInfo, *Message, uint32)
 
 type Message struct {
 	CmdType uint32
@@ -19,19 +19,20 @@ type Message struct {
 
 func NewTCPServer() *TCPServer {
 	server := &TCPServer{
-		sessions:     make(map[*Session]bool),
-		connectCh:    make(chan *Session, 10000),
-		disconnectCh: make(chan *Session, 10000),
-		recvCh:       make(chan *Session, 10000),
-		sendCh:       make(chan *Session, 10000),
-		MessageCh:    make(chan *Message, 10000),
+		sessions:      make(map[uint64]*Session),
+		connectCh:     make(chan *Session, 10000),
+		disconnectCh:  make(chan *Session, 10000),
+		recvCh:        make(chan *Session, 10000),
+		sendCh:        make(chan *Session, 10000),
+		MessageCh:     make(chan *Message, 10000),
+		sessionSeqNum: 0,
 	}
 	return server
 }
 
 type TCPServer struct {
 	clients  map[net.Conn]*TCPClient
-	sessions map[*Session]bool
+	sessions map[uint64]*Session
 	Connect  chan *TCPClient
 
 	connectCh    chan *Session
@@ -42,9 +43,11 @@ type TCPServer struct {
 
 	listener net.Listener
 
-	OnConnect     SessionDelegate
+	OnConnect     SessionInfoDelegate
 	OnRecvMessage MessageDelegate
 	OnSendMessage MessageDelegate2
+
+	sessionSeqNum uint64
 }
 
 func (s *TCPServer) Start(address string) (err error) {
@@ -71,7 +74,8 @@ func (s *TCPServer) accept() {
 			fmt.Println(err)
 		}
 
-		s.connectCh <- NewSession(socket, s.recvCh)
+		s.sessionSeqNum++
+		s.connectCh <- NewSession(socket, s.sessionSeqNum, s.recvCh)
 	}
 }
 
@@ -80,7 +84,7 @@ func (s *TCPServer) process() {
 		select {
 		case session := <-s.connectCh:
 			s.registerSession(session)
-			s.OnConnect(session)
+			s.OnConnect(session.info)
 		case session := <-s.disconnectCh:
 			s.unregisterSession(session)
 		case session := <-s.recvCh:
@@ -88,7 +92,7 @@ func (s *TCPServer) process() {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				s.OnRecvMessage(session, &Message{
+				s.OnRecvMessage(session.info, &Message{
 					CmdType: head.MessageType,
 					ErrCode: 0,
 					Body:    payload,
@@ -99,11 +103,13 @@ func (s *TCPServer) process() {
 }
 
 func (s *TCPServer) registerSession(session *Session) {
-	s.sessions[session] = true
+	session.isActive = true
+	s.sessions[session.info.SessionId] = session
 }
 
 func (s *TCPServer) unregisterSession(session *Session) {
-	s.sessions[session] = false
+	session.isActive = false
+	delete(s.sessions, session.info.SessionId)
 }
 
 func (s *TCPServer) parseMessage(message []byte) (*Header, []byte, error) {
@@ -119,18 +125,20 @@ func (s *TCPServer) parseMessage(message []byte) (*Header, []byte, error) {
 	return head, message[HEADER_SIZE : HEADER_SIZE+head.BodyLength], nil
 }
 
-func (s *TCPServer) SendMessage(session *Session, msg *Message, bodySize uint32) {
-	head := Header{
-		MessageType: msg.CmdType,
-		BodyLength:  bodySize,
-	}
+func (s *TCPServer) SendMessage(sessionInfo SessionInfo, msg *Message, bodySize uint32) {
+	if session, exist := s.sessions[sessionInfo.SessionId]; exist {
+		head := Header{
+			MessageType: msg.CmdType,
+			BodyLength:  bodySize,
+		}
 
-	headerBuffer := head.Marshal()
-	buffer := append(headerBuffer, msg.Body...)
+		headerBuffer := head.Marshal()
+		buffer := append(headerBuffer, msg.Body...)
 
-	_, err := session.Socket.Write(buffer)
-	if err != nil {
-		log.Println(err)
-		return
+		_, err := session.Socket.Write(buffer)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
 }

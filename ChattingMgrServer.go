@@ -18,7 +18,7 @@ func NewChattingMgr() *ChattingMgr {
 	chattingMgr := &ChattingMgr{
 		users:          make(map[uint32]*ChattingUser),
 		userIdMap:      make(map[*ChattingUser]uint32),
-		userSessionMap: make(map[*network.Session]*ChattingUser),
+		userSessionMap: make(map[uint64]*ChattingUser),
 	}
 	return chattingMgr
 }
@@ -26,7 +26,7 @@ func NewChattingMgr() *ChattingMgr {
 type ChattingMgr struct {
 	users          map[uint32]*ChattingUser
 	userIdMap      map[*ChattingUser]uint32
-	userSessionMap map[*network.Session]*ChattingUser
+	userSessionMap map[uint64]*ChattingUser
 	userSeqNum     uint32
 	networkMgr     *network.TCPServer
 }
@@ -38,18 +38,18 @@ func (c *ChattingMgr) Init() {
 	c.networkMgr.Start(":4300")
 }
 
-func (c *ChattingMgr) RegisterUser(session *network.Session) {
-	user := NewChattingUser(c.userSeqNum, session)
+func (c *ChattingMgr) RegisterUser(sessionInfo network.SessionInfo) {
+	user := NewChattingUser(c.userSeqNum, sessionInfo)
 	c.userSeqNum++
 	c.users[c.userSeqNum] = user
 	c.userIdMap[user] = c.userSeqNum
-	c.userSessionMap[session] = user
+	c.userSessionMap[sessionInfo.SessionId] = user
 }
 
-func (c *ChattingMgr) dispatchMessage(session *network.Session, msg *network.Message) {
+func (c *ChattingMgr) dispatchMessage(sessionInfo network.SessionInfo, msg *network.Message) {
 	switch msg.CmdType {
 	case uint32(protomessage.MessageType_kCreateNicknameRequest):
-		c.HandleCreateNickName(c.userSessionMap[session], msg.Body)
+		c.HandleCreateNickName(c.userSessionMap[sessionInfo.SessionId], msg.Body)
 	}
 }
 
@@ -80,7 +80,7 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 		}
 
 		fmt.Println("Client Recv Message : ", u.nickname)
-		c.networkMgr.SendMessage(user.session, m, uint32(response.XXX_Size()))
+		c.networkMgr.SendMessage(user.sessionInfo, m, uint32(response.XXX_Size()))
 	}
 }
 
@@ -98,19 +98,19 @@ func (c *ChattingMgr) ModifyUserNickname(user *ChattingUser, nickname string) *C
 
 /////////////////////////////////////////
 
-func NewChattingUser(userId uint32, session *network.Session) *ChattingUser {
+func NewChattingUser(userId uint32, info network.SessionInfo) *ChattingUser {
 	c := &ChattingUser{
-		userId:  userId,
-		session: session,
+		userId:      userId,
+		sessionInfo: info,
 	}
 
 	return c
 }
 
 type ChattingUser struct {
-	userId   uint32
-	nickname string
-	session  *network.Session
+	userId      uint32
+	nickname    string
+	sessionInfo network.SessionInfo
 }
 
 func (c *ChattingUser) Recv(data []byte) {

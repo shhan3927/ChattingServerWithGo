@@ -8,28 +8,34 @@ import (
 	"sync"
 )
 
-type SessionDelegate func(s *Session)
+type SessionInfoDelegate func(SessionInfo)
 
-type Session struct {
-	Socket  net.Conn
-	recvCh  chan *Session
-	recvBuf []byte
-	wg      *sync.WaitGroup
+type SessionInfo struct {
+	SessionId uint64
 }
 
-func NewSession(inSocket net.Conn, recv chan *Session) *Session {
+type Session struct {
+	Socket   net.Conn
+	recvCh   chan *Session
+	recvBuf  []byte
+	wg       *sync.WaitGroup
+	isActive bool
+	info     SessionInfo
+}
+
+func NewSession(inSocket net.Conn, sessionId uint64, recv chan *Session) *Session {
 	s := &Session{
-		Socket:  inSocket,
-		recvCh:  recv,
-		recvBuf: make([]byte, 4096),
+		Socket:   inSocket,
+		recvCh:   recv,
+		recvBuf:  make([]byte, 4096),
+		isActive: false,
+		info: SessionInfo{
+			SessionId: sessionId,
+		},
 	}
 	go s.process()
 	return s
 }
-
-// func (s *Session) Start() {
-// 	go s.process()
-// }
 
 func (s *Session) process() {
 	for {
@@ -53,4 +59,8 @@ func (s *Session) process() {
 			s.recvCh <- s
 		}
 	}
+}
+
+func (s *Session) GetInfo() SessionInfo {
+	return s.info
 }
