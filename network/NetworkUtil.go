@@ -8,6 +8,7 @@ import (
 )
 
 const MESSAGE_MAX_SIZE uint32 = 4096
+const CONNECT_PORT string = ":4321"
 
 func GetPacketType(i interface{}) (protomessage.MessageType, uint32) {
 	aaa := reflect.TypeOf(i).String()

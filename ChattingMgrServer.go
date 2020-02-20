@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/shhan3927/ChattingServerWithGo/common"
 	"github.com/shhan3927/ChattingServerWithGo/network"
 	"github.com/shhan3927/ChattingServerWithGo/protomessage"
 )
@@ -19,6 +20,7 @@ func NewChattingMgr() *ChattingMgr {
 		users:          make(map[uint32]*ChattingUser),
 		userIdMap:      make(map[*ChattingUser]uint32),
 		userSessionMap: make(map[uint64]*ChattingUser),
+		rooms:          make(map[uint32]*common.Room),
 	}
 	return chattingMgr
 }
@@ -29,18 +31,20 @@ type ChattingMgr struct {
 	userSessionMap map[uint64]*ChattingUser
 	userSeqNum     uint32
 	networkMgr     *network.TCPServer
+	rooms          map[uint32]*common.Room
+	roomSeqNum     uint32
 }
 
 func (c *ChattingMgr) Init() {
 	c.networkMgr = network.NewTCPServer()
 	c.networkMgr.OnConnect = c.RegisterUser
 	c.networkMgr.OnRecvMessage = c.dispatchMessage
-	c.networkMgr.Start(":4300")
+	c.networkMgr.Start(network.CONNECT_PORT)
 }
 
 func (c *ChattingMgr) RegisterUser(sessionInfo network.SessionInfo) {
-	user := NewChattingUser(c.userSeqNum, sessionInfo)
 	c.userSeqNum++
+	user := NewChattingUser(c.userSeqNum, sessionInfo)
 	c.users[c.userSeqNum] = user
 	c.userIdMap[user] = c.userSeqNum
 	c.userSessionMap[sessionInfo.SessionId] = user
@@ -50,6 +54,8 @@ func (c *ChattingMgr) dispatchMessage(sessionInfo network.SessionInfo, msg *netw
 	switch msg.CmdType {
 	case uint32(protomessage.MessageType_kCreateNicknameRequest):
 		c.HandleCreateNickName(c.userSessionMap[sessionInfo.SessionId], msg.Body)
+	case uint32(protomessage.MessageType_kCreateRoomRequest):
+		c.HandleCreateRoom(c.userSessionMap[sessionInfo.SessionId].userId, msg.Body)
 	}
 }
 
@@ -63,8 +69,6 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 
 	fmt.Println(packet.Name)
 
-	// 나중에 수정
-	// response...
 	u := c.ModifyUserNickname(user, packet.Name)
 	if u != nil {
 		var response protomessage.CreateNicknameResponse
@@ -82,6 +86,35 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 		fmt.Println("Client Recv Message : ", u.nickname)
 		c.networkMgr.SendMessage(user.sessionInfo, m, uint32(response.XXX_Size()))
 	}
+}
+
+func (c *ChattingMgr) HandleCreateRoom(userId uint32, msg []byte) {
+	var packet protomessage.CreateRoomRequest
+	e := proto.Unmarshal(msg, &packet)
+	if e != nil {
+		log.Println(e)
+	}
+
+	// Create Room
+	c.roomSeqNum++
+	room := common.NewRoom(c.roomSeqNum, packet.Name)
+	room.AddUser(c.roomSeqNum)
+	room.SetMaster(userId)
+
+	// Response
+	var response protomessage.CreateRoomResponse
+	messageType, typeValue := network.GetPacketType(response)
+	response.MessageType = messageType
+	response.RoomId = room.Id
+	response.Name = room.Name
+	payload, _ := proto.Marshal(&response)
+
+	m := &network.Message{
+		CmdType: typeValue,
+		Body:    payload,
+	}
+
+	c.networkMgr.SendMessage(c.users[userId].sessionInfo, m, uint32(response.XXX_Size()))
 }
 
 func (c *ChattingMgr) ModifyUserNickname(user *ChattingUser, nickname string) *ChattingUser {
@@ -111,12 +144,4 @@ type ChattingUser struct {
 	userId      uint32
 	nickname    string
 	sessionInfo network.SessionInfo
-}
-
-func (c *ChattingUser) Recv(data []byte) {
-
-}
-
-func (c *ChattingUser) Send(data []byte) {
-
 }

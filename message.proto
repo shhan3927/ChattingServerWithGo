@@ -30,13 +30,15 @@ message CreateNicknameResponse {
 message CreateRoomRequest {
     MessageType messageType = 1;
     uint32 roomId = 2;
-    string name = 3;
+    uint32 userId = 3;
+    string name = 4;
 }
 
 message CreateRoomResponse {
     MessageType messageType = 1;
     uint32 roomId = 2;
-    string name = 3;
+    uint32 userId = 3;
+    string name = 4;
 }
 
 message JoinRoomRequest {

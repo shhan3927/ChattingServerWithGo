@@ -50,6 +50,23 @@ func (this *Client) ReqCreateNickname(name string) {
 	this.Socket.Write(buffer)
 }
 
+func (this *Client) ReqCreateRoom(name string) {
+	var req protomessage.CreateRoomRequest
+	messageType, typeValue := GetPacketType(req)
+	req.MessageType = messageType
+	req.Name = name
+
+	head := Header{
+		MessageType: typeValue,
+		BodyLength:  uint32(req.XXX_Size()),
+	}
+
+	headerBuffer := head.Marshal()
+	payloadBuffer, _ := proto.Marshal(&req)
+	buffer := append(headerBuffer, payloadBuffer...)
+	this.Socket.Write(buffer)
+}
+
 func (client *Client) ParseHeader() {
 	header, payload, err := GetHeadAndPayload2(client)
 	if err != nil {
@@ -57,7 +74,7 @@ func (client *Client) ParseHeader() {
 	}
 
 	switch header.MessageType {
-	case uint32(protomessage.MessageType_value["kCreateNicknameResponse"]):
+	case uint32(protomessage.MessageType_kCreateNicknameResponse):
 		var response protomessage.CreateNicknameResponse
 		e := proto.Unmarshal(payload, &response)
 		if e != nil {
@@ -66,6 +83,13 @@ func (client *Client) ParseHeader() {
 		client.userId = response.UserId
 		client.nickname = response.Name
 		fmt.Println(client.nickname)
+	case uint32(protomessage.MessageType_kCreateRoomResponse):
+		var response protomessage.CreateRoomResponse
+		e := proto.Unmarshal(payload, &response)
+		if e != nil {
+			log.Println(e)
+		}
+		fmt.Println("room : ", response.RoomId, response.Name)
 	default:
 		fmt.Println("dddd")
 	}
