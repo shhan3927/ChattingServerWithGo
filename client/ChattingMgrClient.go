@@ -91,6 +91,7 @@ func (c *ChattingMgrClient) ParseHeader() {
 		}
 		c.master.userId = response.UserId
 		c.master.name = response.Name
+		c.OnCreateNickname()
 
 	case uint32(protomessage.MessageType_kCreateRoomResponse):
 		var response protomessage.CreateRoomResponse
@@ -98,6 +99,9 @@ func (c *ChattingMgrClient) ParseHeader() {
 		if e != nil {
 			log.Println(e)
 		}
+
+		// room 처리
+		c.OnCreateRoom()
 		fmt.Println("room : ", response.RoomId, response.Name)
 	default:
 		fmt.Println("dddd")

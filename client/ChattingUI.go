@@ -26,23 +26,23 @@ type UIInterface interface {
 type InputNicknameUI struct {
 }
 
-func (u *InputNicknameUI) Execute() {
-	var name string
+func (u InputNicknameUI) Execute() {
+	//var name string
 	fmt.Println("=============================")
 	fmt.Println("=== SH's Chatting Program ===")
 	fmt.Println()
 	fmt.Println("Input your nickname : ")
-	fmt.Scanf("%s", &name)
+	//fmt.Scanf("%s", &name)
 
 	// Request create nickname
-	GetChattingMgr().ReqCreateNickname(name)
+	GetChattingMgr().ReqCreateNickname("TEst")
 }
 
 //////////////////////////
 type ShowRoomUI struct {
 }
 
-func (u *ShowRoomUI) Execute() {
+func (u ShowRoomUI) Execute() {
 	fmt.Println("=============================")
 	fmt.Println("=======   Room List   =======")
 	fmt.Println("=============================")
@@ -62,7 +62,7 @@ func (u *ShowRoomUI) Execute() {
 type MainUI struct {
 }
 
-func (u *MainUI) Execute() {
+func (u MainUI) Execute() {
 
 }
 
@@ -70,7 +70,7 @@ func (u *MainUI) Execute() {
 type CreateRoomUI struct {
 }
 
-func (u *CreateRoomUI) Execute() {
+func (u CreateRoomUI) Execute() {
 	var name string
 	fmt.Println("=============================")
 	fmt.Println("=======  Create Room  =======")
@@ -86,7 +86,7 @@ func (u *CreateRoomUI) Execute() {
 type InRoomUI struct {
 }
 
-func (u *InRoomUI) Execute() {
+func (u InRoomUI) Execute() {
 	fmt.Println("=============================")
 	fmt.Println("=======  Room : ", "Room1")
 	fmt.Println("=============================")
@@ -109,7 +109,10 @@ func (c *ChattingUI) Start() {
 	chattingMgr := GetChattingMgr()
 	chattingMgr.OnCreateNickname = c.EventCreateNickname
 	chattingMgr.OnCreateRoom = c.EventCreateRoom
-	//c.stateMap[Main] = MainUI{}
+	c.stateMap[Main] = MainUI{}
+	c.stateMap[NickName] = InputNicknameUI{}
+	c.stateMap[CreateRoom] = CreateRoomUI{}
+	c.stateMap[InRoom] = InRoomUI{}
 	c.SetState(NickName)
 }
 
