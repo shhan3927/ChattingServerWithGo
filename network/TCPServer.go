@@ -4,18 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"github.com/shhan3927/ChattingServerWithGo/common"
 )
 
-type CmdType uint32
-type ErrorCode uint32
-type MessageDelegate func(SessionInfo, *Message)
-type MessageDelegate2 func(SessionInfo, *Message, uint32)
-
-type Message struct {
-	CmdType uint32
-	ErrCode ErrorCode
-	Body    []byte
-}
+type MessageDelegate func(SessionInfo, *common.Message)
+type MessageDelegate2 func(SessionInfo, *common.Message, uint32)
 
 func NewTCPServer() *TCPServer {
 	server := &TCPServer{
@@ -24,7 +18,7 @@ func NewTCPServer() *TCPServer {
 		disconnectCh:  make(chan *Session, 10000),
 		recvCh:        make(chan *Session, 10000),
 		sendCh:        make(chan *Session, 10000),
-		MessageCh:     make(chan *Message, 10000),
+		MessageCh:     make(chan *common.Message, 10000),
 		sessionSeqNum: 0,
 	}
 	return server
@@ -39,7 +33,7 @@ type TCPServer struct {
 	disconnectCh chan *Session
 	recvCh       chan *Session
 	sendCh       chan *Session
-	MessageCh    chan *Message
+	MessageCh    chan *common.Message
 
 	listener net.Listener
 
@@ -92,7 +86,7 @@ func (s *TCPServer) process() {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				s.OnRecvMessage(session.info, &Message{
+				s.OnRecvMessage(session.info, &common.Message{
 					CmdType: head.MessageType,
 					ErrCode: 0,
 					Body:    payload,
@@ -125,7 +119,7 @@ func (s *TCPServer) parseMessage(message []byte) (*Header, []byte, error) {
 	return head, message[HEADER_SIZE : HEADER_SIZE+head.BodyLength], nil
 }
 
-func (s *TCPServer) SendMessage(sessionInfo SessionInfo, msg *Message, bodySize uint32) {
+func (s *TCPServer) SendMessage(sessionInfo SessionInfo, msg *common.Message, bodySize uint32) {
 	if session, exist := s.sessions[sessionInfo.SessionId]; exist {
 		head := Header{
 			MessageType: msg.CmdType,
@@ -136,6 +130,7 @@ func (s *TCPServer) SendMessage(sessionInfo SessionInfo, msg *Message, bodySize 
 		buffer := append(headerBuffer, msg.Body...)
 
 		_, err := session.Socket.Write(buffer)
+		fmt.Println("Send Message")
 		if err != nil {
 			log.Println(err)
 			return

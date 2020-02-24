@@ -50,7 +50,7 @@ func (c *ChattingMgr) RegisterUser(sessionInfo network.SessionInfo) {
 	c.userSessionMap[sessionInfo.SessionId] = user
 }
 
-func (c *ChattingMgr) dispatchMessage(sessionInfo network.SessionInfo, msg *network.Message) {
+func (c *ChattingMgr) dispatchMessage(sessionInfo network.SessionInfo, msg *common.Message) {
 	switch msg.CmdType {
 	case uint32(protomessage.MessageType_kCreateNicknameRequest):
 		c.HandleCreateNickName(c.userSessionMap[sessionInfo.SessionId], msg.Body)
@@ -78,7 +78,7 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 		response.Name = u.nickname
 		payload, _ := proto.Marshal(&response)
 
-		m := &network.Message{
+		m := &common.Message{
 			CmdType: typeValue,
 			Body:    payload,
 		}
@@ -109,7 +109,7 @@ func (c *ChattingMgr) HandleCreateRoom(userId uint32, msg []byte) {
 	response.Name = room.Name
 	payload, _ := proto.Marshal(&response)
 
-	m := &network.Message{
+	m := &common.Message{
 		CmdType: typeValue,
 		Body:    payload,
 	}
