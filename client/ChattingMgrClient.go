@@ -83,8 +83,8 @@ func (c *ChattingMgrClient) dispatch(msg *common.Message) {
 		if e != nil {
 			log.Println(e)
 		}
-		c.master.userId = response.UserId
-		c.master.name = response.Name
+		c.master.userId = response.UserInfo.Id
+		c.master.name = response.UserInfo.Name
 		fmt.Println("Response : CreateNickname")
 		c.OnCreateNickname()
 	case uint32(protomessage.MessageType_kCreateRoomResponse):
@@ -94,9 +94,6 @@ func (c *ChattingMgrClient) dispatch(msg *common.Message) {
 			log.Println(e)
 		}
 
-		// room 처리
-		fmt.Println("room : ", response.RoomId, response.Name)
-		fmt.Println("Response : CreateRoom")
 		c.OnCreateRoom()
 	}
 }

@@ -74,8 +74,8 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 		var response protomessage.CreateNicknameResponse
 		messageType, typeValue := network.GetPacketType(response)
 		response.MessageType = messageType
-		response.UserId = u.userId
-		response.Name = u.nickname
+		response.UserInfo.Id = u.userId
+		response.UserInfo.Name = u.nickname
 		payload, _ := proto.Marshal(&response)
 
 		m := &common.Message{
@@ -105,8 +105,17 @@ func (c *ChattingMgr) HandleCreateRoom(userId uint32, msg []byte) {
 	var response protomessage.CreateRoomResponse
 	messageType, typeValue := network.GetPacketType(response)
 	response.MessageType = messageType
-	response.RoomId = room.Id
-	response.Name = room.Name
+	roomInfo := &protomessage.RoomInfo{
+		Id:   room.Id,
+		Name: room.Name,
+		Users: []*protomessage.UserInfo{
+			{
+				Id:   userId,
+				Name: c.users[userId].nickname,
+			},
+		},
+	}
+	response.RoomInfo = roomInfo
 	payload, _ := proto.Marshal(&response)
 
 	m := &common.Message{

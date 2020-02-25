@@ -16,6 +16,18 @@ enum MessageType {
     kSendMessageNotify = 103;
 };
 
+message UserInfo {
+    uint32 id = 1;
+    string name = 2;
+}
+
+message RoomInfo {
+    repeated UserInfo users = 1;
+    uint32 id = 2;
+    string name = 3;
+    uint32 masterUserId = 4;
+}
+
 message CreateNicknameRequest {
     MessageType messageType = 1;
     string name = 2;
@@ -23,8 +35,7 @@ message CreateNicknameRequest {
 
 message CreateNicknameResponse {
     MessageType messageType = 1;
-    uint32 userId = 2;
-    string name = 3;
+    UserInfo userInfo = 2;
 }
 
 message CreateRoomRequest {
@@ -36,9 +47,7 @@ message CreateRoomRequest {
 
 message CreateRoomResponse {
     MessageType messageType = 1;
-    uint32 roomId = 2;
-    uint32 userId = 3;
-    string name = 4;
+    RoomInfo roomInfo = 2;
 }
 
 message JoinRoomRequest {
