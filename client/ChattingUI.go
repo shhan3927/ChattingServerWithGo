@@ -36,7 +36,7 @@ func (u InputNicknameUI) Execute() {
 	fmt.Println("Input your nickname : ")
 
 	// Request create nickname
-	fmt.Scanf("%s", &name)
+	fmt.Scanf("%s\r", &name)
 	GetChattingMgr().ReqCreateNickname(name)
 	fmt.Println("Req Create Nickname")
 
@@ -85,7 +85,7 @@ func (u CreateRoomUI) Execute() {
 
 	// request create room
 
-	fmt.Scanf("%s", &name)
+	fmt.Scanf("%s\r", &name)
 	GetChattingMgr().ReqCreateRoom(name)
 	fmt.Println("Req Create Room")
 	//fmt.Scanf("%s", &name)
@@ -96,7 +96,7 @@ type InRoomUI struct {
 }
 
 func (u InRoomUI) Execute() {
-	ClearScreen()
+	//ClearScreen()
 	fmt.Println("=============================")
 	fmt.Println("=======  Room : ", "Room1")
 	fmt.Println("=============================")
@@ -125,7 +125,7 @@ func (c *ChattingUI) Start() {
 	c.stateMap[CreateRoom] = CreateRoomUI{}
 	c.stateMap[InRoom] = InRoomUI{}
 
-	go c.update()
+	//go c.update()
 	c.SetState(NickName)
 }
 
@@ -159,14 +159,14 @@ func NewChattingUI() *ChattingUI {
 
 func (c *ChattingUI) EventCreateNickname() {
 	fmt.Println("Change State : CreateNickname")
-	//c.SetState(CreateRoom)
-	c.stateCh <- CreateRoom
+	c.SetState(CreateRoom)
+	//c.stateCh <- CreateRoom
 }
 
 func (c *ChattingUI) EventCreateRoom() {
 	fmt.Println("Change State : CreateRoom")
-	c.stateCh <- InRoom
-	//c.SetState(InRoom)
+	//c.stateCh <- InRoom
+	c.SetState(InRoom)
 }
 
 //////////////////////

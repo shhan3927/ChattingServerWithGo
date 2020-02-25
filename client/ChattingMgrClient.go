@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/shhan3927/ChattingServerWithGo/common"
@@ -22,6 +21,8 @@ func GetChattingMgr() *ChattingMgrClient {
 	once.Do(func() {
 		instance = &ChattingMgrClient{
 			roomList: make(map[uint32]*common.Room),
+			isClose:  false,
+			message:  make(chan *common.Message, 1000),
 		}
 	})
 	return instance
@@ -45,8 +46,9 @@ type ChattingMgrClient struct {
 	OnCreateNickname OnResponseDelegate
 	OnCreateRoom     OnResponseDelegate
 	networkMgr       *NetworkMgr
-
-	chattingUI *ChattingUI
+	message          chan *common.Message
+	chattingUI       *ChattingUI
+	isClose          bool
 }
 
 func (c *ChattingMgrClient) Start() {
@@ -56,12 +58,24 @@ func (c *ChattingMgrClient) Start() {
 	c.networkMgr.start()
 	c.chattingUI.Start()
 
+	c.Process()
+}
+
+func (c *ChattingMgrClient) Process() {
 	for {
-		time.Sleep(time.Millisecond)
+		select {
+		case message := <-c.message:
+			fmt.Println("OnRecvMsg")
+			c.dispatch(message)
+		}
 	}
 }
 
 func (c *ChattingMgrClient) OnRecvMsg(msg *common.Message) {
+	c.message <- msg
+}
+
+func (c *ChattingMgrClient) dispatch(msg *common.Message) {
 	switch msg.CmdType {
 	case uint32(protomessage.MessageType_kCreateNicknameResponse):
 		var response protomessage.CreateNicknameResponse
@@ -71,8 +85,8 @@ func (c *ChattingMgrClient) OnRecvMsg(msg *common.Message) {
 		}
 		c.master.userId = response.UserId
 		c.master.name = response.Name
-		c.OnCreateNickname()
 		fmt.Println("Response : CreateNickname")
+		c.OnCreateNickname()
 	case uint32(protomessage.MessageType_kCreateRoomResponse):
 		var response protomessage.CreateRoomResponse
 		e := proto.Unmarshal(msg.Body, &response)
@@ -82,13 +96,12 @@ func (c *ChattingMgrClient) OnRecvMsg(msg *common.Message) {
 
 		// room 처리
 		fmt.Println("room : ", response.RoomId, response.Name)
-		c.OnCreateRoom()
 		fmt.Println("Response : CreateRoom")
+		c.OnCreateRoom()
 	}
 }
 
 func (c *ChattingMgrClient) ReqCreateRoom(name string) {
-	fmt.Println("ReqCreateRoom")
 	var req protomessage.CreateRoomRequest
 	messageType, typeValue := network.GetPacketType(req)
 	req.MessageType = messageType
@@ -119,5 +132,6 @@ func (c *ChattingMgrClient) ReqCreateNickname(name string) {
 	headerBuffer := head.Marshal()
 	payloadBuffer, _ := proto.Marshal(&nicknameReq)
 	buffer := append(headerBuffer, payloadBuffer...)
+	fmt.Println("Write Req packet to socket")
 	c.networkMgr.socket.Write(buffer)
 }

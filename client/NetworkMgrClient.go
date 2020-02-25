@@ -40,14 +40,13 @@ func (n *NetworkMgr) start() {
 
 func (n *NetworkMgr) process() {
 	for {
-		n.recvBuf = n.recvBuf[:0]
 		length, err := n.socket.Read(n.recvBuf)
-		fmt.Println("Recv response!!")
 		if err != nil {
 			n.socket.Close()
 			break
 		}
 		if length > 0 {
+			fmt.Println("Recv response!!")
 			head, payload, err := n.parseMessage(n.recvBuf)
 			if err == nil {
 				fmt.Println("Send response to client manager")
@@ -55,8 +54,12 @@ func (n *NetworkMgr) process() {
 					CmdType: head.MessageType,
 					Body:    payload,
 				})
+			} else {
+				fmt.Println("Recv response!")
 			}
 		}
+
+		//n.recvBuf = n.recvBuf[:0]
 	}
 }
 
