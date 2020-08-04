@@ -1,15 +1,13 @@
-package network
+package chatting_manager
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 )
 
-var sg sync.WaitGroup
-
 func init() {
-
+	c := NewChattingMgr()
+	c.Init()
 	// chattingMgr.networkMgr = NewTCPServer()
 	// chattingMgr.networkMgr.OnConnect = chattingMgr.RegisterUser
 	// chattingMgr.networkMgr.OnRecvMessage = chattingMgr.dispatchMessage

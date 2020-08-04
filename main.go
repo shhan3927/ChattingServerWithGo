@@ -4,6 +4,7 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/shhan3927/ChattingServerWithGo/chatting_manager"
 	"github.com/shhan3927/ChattingServerWithGo/client"
 )
 
@@ -12,7 +13,7 @@ func main() {
 	flag.Parse()
 
 	if strings.ToLower(*flagMode) == "server" {
-		chatMgr := NewChattingMgr()
+		chatMgr := chatting_manager.NewChattingMgr()
 		chatMgr.Init()
 	} else {
 		client.GetChattingMgr().Start()

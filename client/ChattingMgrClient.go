@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"unsafe"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/shhan3927/ChattingServerWithGo/common"
@@ -106,7 +107,7 @@ func (c *ChattingMgrClient) ReqCreateRoom(name string) {
 
 	head := network.Header{
 		MessageType: typeValue,
-		BodyLength:  uint32(req.XXX_Size()),
+		BodyLength:  uint32(unsafe.Sizeof(req)),
 	}
 
 	headerBuffer := head.Marshal()
@@ -123,7 +124,7 @@ func (c *ChattingMgrClient) ReqCreateNickname(name string) {
 
 	head := network.Header{
 		MessageType: typeValue,
-		BodyLength:  uint32(nicknameReq.XXX_Size()),
+		BodyLength:  uint32(unsafe.Sizeof(nicknameReq)),
 	}
 
 	headerBuffer := head.Marshal()

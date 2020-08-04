@@ -1,8 +1,9 @@
-package main
+package chatting_manager
 
 import (
 	"fmt"
 	"log"
+	"unsafe"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/shhan3927/ChattingServerWithGo/common"
@@ -84,7 +85,7 @@ func (c *ChattingMgr) HandleCreateNickName(user *ChattingUser, msg []byte) {
 		}
 
 		fmt.Println("Client Recv Message : ", u.nickname)
-		c.networkMgr.SendMessage(user.sessionInfo, m, uint32(response.XXX_Size()))
+		c.networkMgr.SendMessage(user.sessionInfo, m, uint32(unsafe.Sizeof(response)))
 	}
 }
 
@@ -123,7 +124,7 @@ func (c *ChattingMgr) HandleCreateRoom(userId uint32, msg []byte) {
 		Body:    payload,
 	}
 
-	c.networkMgr.SendMessage(c.users[userId].sessionInfo, m, uint32(response.XXX_Size()))
+	c.networkMgr.SendMessage(c.users[userId].sessionInfo, m, uint32(unsafe.Sizeof(response)))
 }
 
 func (c *ChattingMgr) ModifyUserNickname(user *ChattingUser, nickname string) *ChattingUser {
